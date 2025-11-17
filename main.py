@@ -1042,6 +1042,7 @@ def create_app():
 
     async def root_endpoint(request):
         """Root endpoint for Claude AI discovery"""
+        # Handle both GET and POST requests
         return JSONResponse({
             "service": "ticktick-mcp-remote",
             "version": "1.0.0",
@@ -1111,17 +1112,18 @@ def create_app():
     mcp_app = mcp.http_app()
 
     # Create wrapper app with auth and CORS
-    # IMPORTANT: FastMCP's http_app() expects to handle requests at its root
-    # So we mount it at / and it will handle /mcp endpoint internally
-    # We add specific routes BEFORE mounting FastMCP so they take precedence
+    # IMPORTANT: Route() definitions MUST come before Mount() to take precedence
+    # Starlette matches routes in order, so our specific routes will be checked first
     app = Starlette(
         routes=[
+            # Specific routes first - these will match before the Mount
             Route("/health", health_check, methods=["GET", "HEAD"]),
-            Route("/", root_endpoint, methods=["GET", "HEAD"]),
+            Route("/", root_endpoint, methods=["GET", "HEAD", "POST"]),
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource, methods=["GET", "HEAD"]),
             Route("/.well-known/oauth-authorization-server", oauth_authorization_server, methods=["GET", "HEAD"]),
             Route("/register", register_endpoint, methods=["GET", "POST", "HEAD"]),
-            Mount("/", mcp_app)  # FastMCP handles /mcp internally - must be last
+            # Mount FastMCP last - it will handle /mcp and any unmatched routes
+            Mount("/", mcp_app)  # FastMCP handles /mcp internally
         ],
         middleware=[
             Middleware(
