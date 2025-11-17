@@ -1041,15 +1041,24 @@ def create_app():
         })
 
     async def auth_middleware(request, call_next):
-        # Skip auth for health check and OAuth discovery endpoints
-        if request.url.path in ["/health", "/.well-known/oauth-protected-resource",
-                                "/.well-known/oauth-authorization-server", "/register"]:
+        # Skip auth for health check, root path, and OAuth discovery endpoints
+        # Claude AI may probe the root path during connection
+        skip_paths = [
+            "/health",
+            "/",
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-authorization-server",
+            "/register"
+        ]
+        
+        if request.url.path in skip_paths:
             return await call_next(request)
 
         # Check API key if configured
         if MCP_API_KEY:
             auth_header = request.headers.get("authorization", "")
             if not auth_header.startswith("Bearer "):
+                logger.warning(f"Unauthenticated request to {request.url.path} - missing Authorization header")
                 return JSONResponse(
                     {"error": "Missing or invalid Authorization header"},
                     status_code=401
@@ -1057,6 +1066,7 @@ def create_app():
 
             token = auth_header.replace("Bearer ", "")
             if token != MCP_API_KEY:
+                logger.warning(f"Unauthenticated request to {request.url.path} - invalid API key")
                 return JSONResponse(
                     {"error": "Invalid API key"},
                     status_code=401
@@ -1068,9 +1078,20 @@ def create_app():
     mcp_app = mcp.http_app()
 
     # Create wrapper app with auth and CORS
+    # Add a root endpoint for Claude AI discovery
+    async def root_endpoint(request):
+        """Root endpoint for Claude AI discovery"""
+        return JSONResponse({
+            "service": "ticktick-mcp-remote",
+            "version": "1.0.0",
+            "mcp_endpoint": "/mcp",
+            "health": "/health"
+        })
+    
     app = Starlette(
         routes=[
             Route("/health", health_check, methods=["GET", "HEAD"]),
+            Route("/", root_endpoint, methods=["GET", "HEAD"]),
             Mount("/", mcp_app)  # FastMCP handles /mcp internally
         ],
         middleware=[
