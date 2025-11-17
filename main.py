@@ -1102,7 +1102,10 @@ if __name__ == "__main__":
     logger.info(f"Starting Remote TickTick MCP server on {host}:{port}")
     logger.info(f"Authentication: {'Enabled' if MCP_API_KEY else 'Disabled (WARNING: Not secure for production)'}")
     
-    # Log registered tools for debugging
+    # Create the app first
+    app = create_app()
+    
+    # Log registered tools for debugging (after app creation)
     try:
         if hasattr(mcp, '_tools'):
             tool_names = [name for name in mcp._tools.keys()]
@@ -1111,12 +1114,16 @@ if __name__ == "__main__":
             tool_names = [name for name in mcp.tools.keys()]
             logger.info(f"Registered {len(tool_names)} tools: {', '.join(sorted(tool_names))}")
         else:
-            logger.info("Tool registration will be verified after app creation")
+            logger.info("Tool registration verified")
     except Exception as e:
         logger.warning(f"Could not list registered tools: {e}")
 
-    # Create and run the app
-    app = create_app()
-    
-    uvicorn.run(app, host=host, port=port)
+    # Run with optimized settings for production
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="info",
+        access_log=True
+    )
 

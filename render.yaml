@@ -3,6 +3,7 @@ services:
     name: ticktick-mcp-remote
     runtime: docker
     plan: free
+    healthCheckPath: /health
     envVars:
       - key: TICKTICK_CLIENT_ID
         sync: false
