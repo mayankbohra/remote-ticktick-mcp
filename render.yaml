@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ticktick-mcp-remote
+    runtime: docker
+    plan: free
+    envVars:
+      - key: TICKTICK_CLIENT_ID
+        sync: false
+      - key: TICKTICK_CLIENT_SECRET
+        sync: false
+      - key: TICKTICK_ACCESS_TOKEN
+        sync: false
+      - key: TICKTICK_REFRESH_TOKEN
+        sync: false
+      - key: MCP_API_KEY
+        sync: false
+      - key: PORT
+        value: 8000
+
