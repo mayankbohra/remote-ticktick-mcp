@@ -1040,9 +1040,42 @@ def create_app():
             "authentication": "enabled" if MCP_API_KEY else "disabled"
         })
 
+    async def root_endpoint(request):
+        """Root endpoint for Claude AI discovery"""
+        return JSONResponse({
+            "service": "ticktick-mcp-remote",
+            "version": "1.0.0",
+            "mcp_endpoint": "/mcp",
+            "health": "/health"
+        })
+
+    async def oauth_protected_resource(request):
+        """OAuth protected resource discovery endpoint"""
+        return JSONResponse({
+            "resource": "ticktick-mcp-remote",
+            "scopes_supported": []
+        })
+
+    async def oauth_authorization_server(request):
+        """OAuth authorization server discovery endpoint"""
+        return JSONResponse({
+            "issuer": "https://remote-ticktick-mcp.onrender.com",
+            "authorization_endpoint": None,
+            "token_endpoint": None,
+            "scopes_supported": []
+        })
+
+    async def register_endpoint(request):
+        """Registration endpoint for Claude AI"""
+        return JSONResponse({
+            "status": "ok",
+            "message": "TickTick MCP server is ready",
+            "mcp_endpoint": "/mcp"
+        })
+
     async def auth_middleware(request, call_next):
         # Skip auth for health check, root path, and OAuth discovery endpoints
-        # Claude AI may probe the root path during connection
+        # Claude AI may probe these paths during connection
         skip_paths = [
             "/health",
             "/",
@@ -1078,21 +1111,17 @@ def create_app():
     mcp_app = mcp.http_app()
 
     # Create wrapper app with auth and CORS
-    # Add a root endpoint for Claude AI discovery
-    async def root_endpoint(request):
-        """Root endpoint for Claude AI discovery"""
-        return JSONResponse({
-            "service": "ticktick-mcp-remote",
-            "version": "1.0.0",
-            "mcp_endpoint": "/mcp",
-            "health": "/health"
-        })
-    
+    # IMPORTANT: FastMCP's http_app() expects to handle requests at its root
+    # So we mount it at / and it will handle /mcp endpoint internally
+    # We add specific routes BEFORE mounting FastMCP so they take precedence
     app = Starlette(
         routes=[
             Route("/health", health_check, methods=["GET", "HEAD"]),
             Route("/", root_endpoint, methods=["GET", "HEAD"]),
-            Mount("/", mcp_app)  # FastMCP handles /mcp internally
+            Route("/.well-known/oauth-protected-resource", oauth_protected_resource, methods=["GET", "HEAD"]),
+            Route("/.well-known/oauth-authorization-server", oauth_authorization_server, methods=["GET", "HEAD"]),
+            Route("/register", register_endpoint, methods=["GET", "POST", "HEAD"]),
+            Mount("/", mcp_app)  # FastMCP handles /mcp internally - must be last
         ],
         middleware=[
             Middleware(
