@@ -1075,11 +1075,14 @@ def create_app():
         })
 
     async def auth_middleware(request, call_next):
-        # Skip auth for health check, root path, and OAuth discovery endpoints
+        # Skip auth for health check, root path, OAuth discovery endpoints, and MCP endpoint
         # Claude AI may probe these paths during connection
+        # NOTE: If MCP_API_KEY is set, Claude AI's custom connector might not support it yet
+        # In that case, temporarily disable MCP_API_KEY in Render environment variables
         skip_paths = [
             "/health",
             "/",
+            "/mcp",  # MCP endpoint - Claude AI might not send API key
             "/.well-known/oauth-protected-resource",
             "/.well-known/oauth-authorization-server",
             "/register"
